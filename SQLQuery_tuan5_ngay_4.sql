@@ -66,7 +66,7 @@ SELECT
     S.Gender,
     COUNT(S.StudentID) AS SoLuong
 FROM Students S
-LEFT JOIN Classes C ON S.ClassID = S.ClassID
+LEFT JOIN Classes C ON S.ClassID = C.ClassID
 GROUP BY C.ClassName, S.Gender;
 
 
