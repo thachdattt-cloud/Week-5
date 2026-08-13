@@ -104,7 +104,7 @@ GO
 DECLARE @InsertedID INT;
 EXEC sp_CreateStudent 
     @StudentCode = 'SV999', 
-    @FullName = N'Nguyễn Văn A', 
+    @FullName = N'Nguyễn Văn Quoc', 
     @Gender = 1, 
     @BirthDate = '2003-05-15', 
     @Email = 'nguyenvana@gmail.com', 

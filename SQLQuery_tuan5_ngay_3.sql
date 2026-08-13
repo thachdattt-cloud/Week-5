@@ -55,7 +55,7 @@ where StudentCode='SV02'
 -- thay thể đuôi email của tát cả sinh vien nam--
 update Students
 set email = REPLACE(email,'@gmail.com','@uneti.com')
-
+where Gender = 1
 --orderby---
 --sắp xếp tăng dân theo tên-----
 select *from Students

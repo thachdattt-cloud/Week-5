@@ -74,7 +74,7 @@ GROUP BY C.ClassName, S.Gender;
 -- 7. TẠO VIEW TỔNG HỢP BÁO CÁO KẾT QUẢ HỌC TẬP (SỐ MÔN & ĐIỂM GPA) CỦA SINH VIÊN
 -- =================================================================
 GO
-CREATE VIEW vw_StudentAcademicReport AS
+CREATE OR ALTER VIEW vw_StudentAcademicReport AS
 SELECT 
     S.StudentID,
     S.StudentCode,
