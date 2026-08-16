@@ -1,102 +1,112 @@
-﻿using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using tuan3.ApiResponse;
+using tuan3.Data;
 using tuan3.DTO;
+using tuan3.Exceptions;
 using tuan3.models;
 using tuan3.Pagination;
-using tuan3.Exceptions;
+
 namespace tuan3.Controllers
 {
     [ApiController]
-    [Route("api/students")] 
+    [Route("api/students")]
     public class StudentController : ControllerBase
     {
-        private static List<Student> _students = new List<Student>
+        private readonly AppDbContext _context;
+
+        public StudentController(AppDbContext context)
         {
-            new Student { Id = 1, Name = "quang", Age = 20 },
-            new Student { Id = 2, Name = "hung", Age = 30 },
-            new Student { Id = 3, Name = "nguyen quang", Age = 30 },
-            new Student { Id = 4, Name = "quang hung 1 ", Age = 40 },
-            new Student { Id = 5, Name = "quang hung 2", Age = 40 },
-            new Student { Id = 6, Name = "quang hung 3", Age = 40 },
-            new Student { Id = 7, Name = "quang hung 4", Age = 40 },
-            new Student { Id = 8, Name = "quang hung 5", Age = 40 },
-            new Student { Id = 9, Name = "quang hung 6", Age = 40 },
-            new Student { Id = 20, Name = "quang hung 7", Age = 40 },
-            new Student { Id = 11, Name = "quang hung 8", Age = 40 },
-            new Student { Id =12, Name = "quang hung 9", Age = 40 },
-            new Student { Id = 13, Name = "quang hung 10", Age = 40 },
-            new Student { Id = 14, Name = "quang hung 11", Age = 40 }
-        };
+            _context = context;
+        }
 
         private StudentResponseDto MapToDto(Student student)
         {
-            return new StudentResponseDto
+            int age = 0;
+            if (student.BirthDate.HasValue)
             {
-                Id = student.Id,
-                Name = student.Name,
-                Age = student.Age
-            };
-        }
-
-    
-        [HttpGet]
-        public async  Task <ActionResult<ApiResponse<List<StudentResponseDto>>>> GetAll([FromQuery] string? keyword)
-        {
-           await Task.Delay(2000);
-            var student = _students;
-         
-            if (!string.IsNullOrWhiteSpace(keyword))
-            {
-                student = student.Where(s => s.Name.Contains(keyword, StringComparison.OrdinalIgnoreCase)).ToList();
+                age = DateTime.Today.Year - student.BirthDate.Value.Year;
             }
 
-            var result =student.Select(s => MapToDto(s)).ToList();
+            var dto = new StudentResponseDto();
+            dto.Id = student.StudentID;
+            dto.Name = student.FullName;
+            dto.Age = age;
+            dto.StudentCode = student.StudentCode;
+            dto.Gender = student.Gender;
+            dto.Email = student.Email;
+            dto.ClassID = student.ClassID;
+
+            return dto;
+        }
+
+        [HttpGet]
+        public async Task<ActionResult<ApiResponse<List<StudentResponseDto>>>> GetAll([FromQuery] string? keyword)
+        {
+            var query = _context.Students.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(keyword))
+            {
+                query = query.Where(s => s.FullName.Contains(keyword));
+            }
+
+            var students = await query.ToListAsync();
+            var result = students.Select(s => MapToDto(s)).ToList();
+
             return Ok(ApiResponse<List<StudentResponseDto>>.Ok(result, "Lay danh sach thanh cong"));
         }
 
-    
-        [HttpGet("{id}")]
-        public ActionResult<ApiResponse<StudentResponseDto>> GetById([FromRoute] int id)
+        [HttpGet("with-class")]
+        public async Task<ActionResult<ApiResponse<List<StudentWithClassDto>>>> GetAllWithClass()
         {
-            var student = _students.FirstOrDefault(s => s.Id == id);
+            var result = await _context.Students
+                .Select(s => new StudentWithClassDto
+                {
+                    StudentID = s.StudentID,
+                    StudentCode = s.StudentCode,
+                    FullName = s.FullName,
+                    ClassName = s.Class.ClassName
+                })
+                .ToListAsync();
+
+            return Ok(ApiResponse<List<StudentWithClassDto>>.Ok(result, "Lay danh sach sinh vien kem lop thanh cong"));
+        }
+
+        [HttpGet("{id}")]
+        public async Task<ActionResult<ApiResponse<StudentResponseDto>>> GetById([FromRoute] int id)
+        {
+            var student = await _context.Students.FirstOrDefaultAsync(s => s.StudentID == id);
             if (student == null)
             {
-                // return NotFound(ApiResponse<StudentResponseDto>.Fail("Khong tim thay sinh vien"));
-                 throw new NotFoundException("khong tim thay sinh vien");
+                throw new NotFoundException("khong tim thay sinh vien");
             }
 
             return Ok(ApiResponse<StudentResponseDto>.Ok(MapToDto(student), "Lay du lieu thanh cong"));
         }
 
-
         [HttpPost]
-        public ActionResult<ApiResponse<StudentResponseDto>> Create([FromBody] CreateStudentDto dto)
+        public async Task<ActionResult<ApiResponse<StudentResponseDto>>> Create([FromBody] CreateStudentDto dto)
         {
             if (string.IsNullOrWhiteSpace(dto.Name))
             {
-                // return BadRequest(ApiResponse<StudentResponseDto>.Fail("Ten khong duoc de trong"));
                 throw new BadRequestException("ten khong duoc de trong kk");
             }
 
-            int newId;
-            if (_students.Count() == 0)
+            var newStudent = new Student();
+            newStudent.FullName = dto.Name;
+            newStudent.Gender = dto.Gender;
+            newStudent.BirthDate = dto.BirthDate;
+            newStudent.Email = dto.Email;
+            newStudent.ClassID = dto.ClassID;
+
+            if (!string.IsNullOrWhiteSpace(dto.StudentCode))
             {
-                newId = 1;
-            }
-            else
-            {
-                newId = _students.Max(s => s.Id) + 1;
+                newStudent.StudentCode = dto.StudentCode;
             }
 
-            var newStudent = new Student
-            {
-                Id = newId,
-                Name = dto.Name,
-                Age = dto.Age
-            };
+            _context.Students.Add(newStudent);
+            await _context.SaveChangesAsync();
 
-            _students.Add(newStudent);
             var response = MapToDto(newStudent);
 
             return CreatedAtAction(
@@ -105,78 +115,97 @@ namespace tuan3.Controllers
                 ApiResponse<StudentResponseDto>.Ok(response, "Tao moi thanh cong"));
         }
 
-    
         [HttpPut("{id}")]
-        public ActionResult<ApiResponse<StudentResponseDto>> Update([FromRoute] int id, [FromBody] UpdateStudentDto dto)
+        public async Task<ActionResult<ApiResponse<StudentResponseDto>>> Update([FromRoute] int id, [FromBody] UpdateStudentDto dto)
         {
-            var student = _students.FirstOrDefault(s => s.Id == id);
+            var student = await _context.Students.FirstOrDefaultAsync(s => s.StudentID == id);
             if (student == null)
             {
-                //return NotFound(ApiResponse<StudentResponseDto>.Fail("Khong tim thay sinh vien can sua"));
                 throw new NotFoundException("khong tim thay sinh vien can sua");
             }
 
-            student.Name = dto.Name;
-            student.Age = dto.Age;
+            student.FullName = dto.Name;
+            student.Gender = dto.Gender;
+            student.BirthDate = dto.BirthDate;
+            student.Email = dto.Email;
+            student.ClassID = dto.ClassID;
+
+            await _context.SaveChangesAsync();
 
             return Ok(ApiResponse<StudentResponseDto>.Ok(MapToDto(student), "Cap nhat thanh cong"));
         }
 
-    
         [HttpDelete("{id}")]
-        public ActionResult<ApiResponse<string>> Delete([FromRoute] int id)
+        public async Task<ActionResult<ApiResponse<string>>> Delete([FromRoute] int id)
         {
-            var student = _students.FirstOrDefault(s => s.Id == id);
+            var student = await _context.Students.FirstOrDefaultAsync(s => s.StudentID == id);
             if (student == null)
             {
-                // return NotFound(ApiResponse<string>.Fail("Khong tim thay sinh vien can xoa"));
-                 throw new NotFoundException("khong tim thay sinh vien can xoa");
+                throw new NotFoundException("khong tim thay sinh vien can xoa");
             }
 
-            _students.Remove(student);
-            return Ok(ApiResponse<string>.Ok(null !, "Xoa thanh cong"));
+            _context.Students.Remove(student);
+            await _context.SaveChangesAsync();
+
+            return Ok(ApiResponse<string>.Ok(null!, "Xoa thanh cong"));
         }
 
         [HttpGet("Page")]
-        public ActionResult<ApiResponse<PagedResult<StudentResponseDto>>>GetPage([FromQuery] PaginationQuery query){
+        public async Task<ActionResult<ApiResponse<PagedResult<StudentResponseDto>>>> GetPage([FromQuery] PaginationQuery query)
+        {
+            var queryStudent = _context.Students.AsQueryable();
 
-            var queryStudent = _students.AsQueryable();
-            if (!String.IsNullOrWhiteSpace(query.Keyword)){
-            
-                    queryStudent=queryStudent.Where(s=>s.Name.Contains(query.Keyword,StringComparison.OrdinalIgnoreCase));
-                
+            if (!string.IsNullOrWhiteSpace(query.Keyword))
+            {
+                queryStudent = queryStudent.Where(s => s.FullName.Contains(query.Keyword));
             }
 
-            var totalItems=queryStudent.Count();
+            var totalItems = await queryStudent.CountAsync();
             var skipCount = (query.PageNumber - 1) * query.PageSize;
 
-
-
-            var items = queryStudent.Skip(skipCount)
+            var students = await queryStudent.Skip(skipCount)
                                   .Take(query.PageSize)
-                                  .Select(s => MapToDto(s))
-                                  .ToList();
+                                  .ToListAsync();
 
-            var pageResult = new PagedResult<StudentResponseDto>
-            {
+            var items = students.Select(s => MapToDto(s)).ToList();
 
-                Items=items,
-                PageNumber=query.PageNumber,
-                PageSize=query.PageSize,
-                TotalItems=totalItems
+            var pageResult = new PagedResult<StudentResponseDto>();
+            pageResult.Items = items;
+            pageResult.PageNumber = query.PageNumber;
+            pageResult.PageSize = query.PageSize;
+            pageResult.TotalItems = totalItems;
 
-            };
-
-
-
-            return Ok(ApiResponse<PagedResult<StudentResponseDto>>.Ok(pageResult,"danh sach thong tin"));
+            return Ok(ApiResponse<PagedResult<StudentResponseDto>>.Ok(pageResult, "danh sach thong tin"));
         }
-        [HttpGet("test-error-500")]
 
-    public IActionResult testError()
+        [HttpGet("grades-detail")]
+        public async Task<ActionResult<ApiResponse<List<GradeDetailDto>>>> GetGradesDetail()
+        {
+            var grades = await _context.StudentGrades
+                .Include(g => g.Student)
+                    .ThenInclude(s => s.Class)
+                .Include(g => g.Subject)
+                .ToListAsync();
+
+            var result = new List<GradeDetailDto>();
+            foreach (var g in grades)
+            {
+                var dto = new GradeDetailDto();
+                dto.StudentCode = g.Student.StudentCode;
+                dto.StudentFullName = g.Student.FullName;
+                dto.ClassName = g.Student.Class.ClassName;
+                dto.SubjectName = g.Subject.SubjectName;
+                dto.Mark = g.Mark;
+                result.Add(dto);
+            }
+
+            return Ok(ApiResponse<List<GradeDetailDto>>.Ok(result, "Lay chi tiet diem thanh cong"));
+        }
+
+        [HttpGet("test-error-500")]
+        public IActionResult testError()
         {
             throw new Exception("loi 500");
-            
         }
     }
 }

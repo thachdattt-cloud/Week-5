@@ -3,21 +3,19 @@ using tuan3.DTO;
 
 namespace tuan3.Validators
 {
-    public class UpdateStudentValidator:AbstractValidator<UpdateStudentDto>
+    public class UpdateStudentDtoValidator : AbstractValidator<UpdateStudentDto>
     {
-        public UpdateStudentValidator()
+        public UpdateStudentDtoValidator()
         {
             RuleFor(x => x.Name)
-                .NotEmpty().WithMessage("ten khong duoc de trong")
-                .MinimumLength(30).WithMessage("ki tu toi thieu 30 ki tu");
+                .NotEmpty().WithMessage("Ten khong duoc de trong");
 
-            RuleFor(x => x.Age)
-                .InclusiveBetween(19, 23).WithMessage("do tuoi cua sinh vien pahi tu 19 den 23");
+            RuleFor(x => x.ClassID)
+                .GreaterThan(0).WithMessage("Phai chon lop hop le");
 
-
-
-
+            RuleFor(x => x.Email)
+                .EmailAddress().WithMessage("Email khong dung dinh dang")
+                .When(x => !string.IsNullOrWhiteSpace(x.Email));
         }
-
     }
 }

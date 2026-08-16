@@ -1,11 +1,33 @@
-﻿namespace tuan3.models
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace tuan3.models
 {
+
+
+
+    [Table("Students")]
     public class Student
     {
-        public int   Id { get; set; }
-        public string ? Name { get; set; }
-        public int  ? Age { get; set; }
-      
+        [Key]
+        public int StudentID { get; set; }
+
+        public string StudentCode { get; set; } = string.Empty;
+
+        public string FullName { get; set; } = string.Empty;
+
+        public bool? Gender { get; set; }
+
+        public DateTime? BirthDate { get; set; }
+
+        public string? Email { get; set; }
+
+        public int ClassID { get; set; }
+        public Class Class { get; set; } = null!;
+
+
+
+
         public Student() { }
     }
 }

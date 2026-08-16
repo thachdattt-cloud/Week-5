@@ -5,11 +5,15 @@ using System.Diagnostics;
 using tuan3.ApiResponse;
 using tuan3.Exceptions;
 using tuan3.Middlewares;
+using tuan3.Data;
+using Microsoft.EntityFrameworkCore;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
 
-
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("defaultConnection")));
 builder.Services.AddControllers();
 builder.Services.AddCors(
     options =>
